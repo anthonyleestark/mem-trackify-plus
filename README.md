@@ -31,7 +31,6 @@ Ideal for both single-threaded and multi-threaded applications, with optional de
 Before including the header, define any desired macros:
 
 ```cpp
-#define SMART_GC_ENABLED
 #define SMART_GC_DEBUG
 #define SMART_GC_THREADSAFETY
 #define SMART_GC_CONSOLE_REPORT_ON_TERMINATION
