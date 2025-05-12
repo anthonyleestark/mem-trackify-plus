@@ -4,7 +4,6 @@
 A very simple, lightweight, header-only C++ smart garbage collection library designed to track memory allocations and detect memory leaks.  
 Ideal for both single-threaded and multi-threaded applications, with optional debug and console reporting features.
 
----
 
 ## 📦 Features
 
@@ -18,7 +17,6 @@ Ideal for both single-threaded and multi-threaded applications, with optional de
 - Optional custom template: `gcNew/gcNewArray`, `gcDelete/gcDeleteArray`.
 - Optional macros: `smart_new`, and `debug_new`.
 
----
 
 ## 🚀 Getting Started
 
@@ -33,14 +31,12 @@ Ideal for both single-threaded and multi-threaded applications, with optional de
 Before including the header, define any desired macros:
 
 ```cpp
-#define SMART_GC_ENABLED
 #define SMART_GC_DEBUG
 #define SMART_GC_THREADSAFETY
 #define SMART_GC_CONSOLE_REPORT_ON_TERMINATION
 #include "smart-gc.h"
 ```
 
----
 
 ## 🛠 Macros & Modes
 
@@ -52,7 +48,6 @@ Before including the header, define any desired macros:
 | `SMART_GC_NOTOVERRIDE_GLOBAL_NEW`   | Do **not** override global `new` operator. |
 | `SMART_GC_NOTOVERRIDE_GLOBAL_DELETE`| Do **not** override global `delete` operator. |
 
----
 
 ## 🔧 Usage Examples
 
@@ -120,7 +115,6 @@ gcDeleteArray(obj);
 gcDeleteArray(num);
 ```
 
----
 
 ## 📋 Leak Detection API
 
@@ -133,21 +127,18 @@ if (gc->gcIsMemoryLeak()) {
 }
 ```
 
----
 
 ## ⚙️ Thread-Safety
 
 Enable `SMART_GC_THREADSAFETY` if using in a multi-threaded environment.  
 This will adds internal thread-locking mechanism to ensure thread-safety, especially when you're working on multi-threaded application or using recursive allocation/deallocation architecture.
 
----
 
 ## 📄 License
 
 MIT License  
 © 2025 Anthony Lee Stark. All rights reserved.
 
----
 
 ## 🤖 Author
 
