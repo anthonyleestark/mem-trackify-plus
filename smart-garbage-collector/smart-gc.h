@@ -83,10 +83,10 @@
 
 /*
  * Example:
- *	 #define SMART_GC_ENABLED
  *	 #define SMART_GC_DEBUG
  *	 #define SMART_GC_THREADSAFETY
  *	 #define SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+ *	 #include "smart-gc.h"
  * 
  */
 
