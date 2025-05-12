@@ -9,12 +9,14 @@ Ideal for both single-threaded and multi-threaded applications, with optional de
 ## 📦 Features
 
 - Automatic tracking of memory allocations and deallocations.
+- Automatic freeing memory leaks on termination.
 - Leak detection with detailed reporting.
-- Optional thread-safety with `std::mutex`.
+- Optional thread-safety with `std::recursive_mutex`.
 - Debug mode with file/line tracking.
 - Console memory leak report on termination (optional).
 - Can override or skip overriding global `new`/`delete`.
-- Optional custom `gcNew`, `gcDelete`, `smart_new`, and `debug_new`.
+- Optional custom template: `gcNew/gcNewArray`, `gcDelete/gcDeleteArray`.
+- Optional macros: `smart_new`, and `debug_new`.
 
 ---
 
@@ -45,7 +47,7 @@ Before including the header, define any desired macros:
 | Macro                                 | Description |
 |--------------------------------------|-------------|
 | `SMART_GC_DEBUG`                     | Enable debug tracking (filename, line number). |
-| `SMART_GC_THREADSAFETY`             | Use mutex for multithreaded safety. |
+| `SMART_GC_THREADSAFETY`             | Use mutex for multi-threaded safety. |
 | `SMART_GC_CONSOLE_REPORT_ON_TERMINATION` | Show leak report at program exit (console only). |
 | `SMART_GC_NOTOVERRIDE_GLOBAL_NEW`   | Do **not** override global `new` operator. |
 | `SMART_GC_NOTOVERRIDE_GLOBAL_DELETE`| Do **not** override global `delete` operator. |
@@ -103,8 +105,19 @@ debug_delete debugData;
 ### Using `gcNew` and `gcDelete`
 
 ```cpp
-MyClass* obj = gcNew<MyClass>(constructor_args);
+MyClass *obj = gcNew<MyClass>(constructor_args);
+int *num = gcNew<int>(30);      // Set value = 30 for 'num'
 gcDelete(obj);
+gcDelete(num);
+```
+
+### Using `gcNewArray` and `gcDeleteArray`
+
+```cpp
+MyClass *arr_obj = gcNewArray<MyClass>(3);  // Create an array of MyClass with 3 elements
+int *nums = gcNewArray<int>(15);            // Create an array of int with 15 elements
+gcDeleteArray(obj);
+gcDeleteArray(num);
 ```
 
 ---
@@ -139,5 +152,3 @@ MIT License
 ## 🤖 Author
 
 Developed by **Anthony Lee Stark** `(@anthonyleestark)`.
-
----
