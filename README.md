@@ -8,7 +8,7 @@ Ideal for both single-threaded and multi-threaded applications, with optional de
 ## 📦 Features
 
 - Automatic tracking of memory allocations and deallocations.
-- Automatic freeing memory leaks on termination.
+- Automatic freeing of memory leaks on termination.
 - Leak detection with detailed reporting.
 - Optional thread-safety with `std::recursive_mutex`.
 - Debug mode with file/line tracking.
@@ -22,9 +22,20 @@ Ideal for both single-threaded and multi-threaded applications, with optional de
 
 ### 1. Include the Header
 
+Add the "smart-gc.h" header file to your project.  
+Include it wherever you want (better in your top-most/precompiled header file)
+
 ```cpp
 #include "smart-gc.h"
 ```
+> ⚠️ **Note:** 
+>     If you're using a version of C++ **before C++17** _(C++ 98/03/11/14)_, you must also add the "smart-gc.cpp" file to your project.  
+>     Or add this definition in at least one of your translation units (source file `.cpp`):
+
+```cpp
+SmartGarbageCollector __smart_gc_global::__g_gcSmartGarbageCollector;
+```
+
 
 ### 2. Enable Features (optional)
 
@@ -36,6 +47,8 @@ Before including the header, define any desired macros:
 #define SMART_GC_CONSOLE_REPORT_ON_TERMINATION
 #include "smart-gc.h"
 ```
+> ⚠️ **Note:** 
+>     Or you can define these macros in the **Preprocessor Definitions** section of your project settings.
 
 
 ## 🛠 Macros & Modes
@@ -73,10 +86,10 @@ int main()
 }
 ```
 > ⚠️ **Note:** 
->     The allocated memory will **only** be automatically freed before the program terminates.
->     If you want a pointer which automatically frees when goes out of scope, use `STL Smart Pointers` instead.
+>     The allocated memory will **only** be automatically freed before the program terminates.  
+>     If you want a pointer that automatically frees when it goes out of scope, use `STL Smart Pointers` instead.
 
-### Basic allocation with overriden global new/delete operators (without `SMART_GC_NOTOVERRIDE_GLOBAL_NEW/DELETE`)
+### Basic allocation with overridden global new/delete operators (without `SMART_GC_NOTOVERRIDE_GLOBAL_NEW/DELETE`)
 
 ```cpp
 int* data = new int[100];
@@ -131,13 +144,13 @@ if (gc->gcIsMemoryLeak()) {
 ## ⚙️ Thread-Safety
 
 Enable `SMART_GC_THREADSAFETY` if using in a multi-threaded environment.  
-This will adds internal thread-locking mechanism to ensure thread-safety, especially when you're working on multi-threaded application or using recursive allocation/deallocation architecture.
+This will add an internal thread-locking mechanism to ensure thread-safety, especially when you're working on a multi-threaded application or using a recursive allocation/deallocation architecture.
 
 
 ## 📄 License
 
-MIT License  
-© 2025 Anthony Lee Stark. All rights reserved.
+Copyright © 2025 Anthony Lee Stark. All rights reserved.  
+This repository is open-source and available under the [MIT License](https://opensource.org/license/mit)
 
 
 ## 🤖 Author
