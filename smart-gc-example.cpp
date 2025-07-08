@@ -31,8 +31,8 @@ int main()
 	// Entry information
 	std::cout << "Normal allocation test. \n";
 
-	MyClass* ptr = smart_new MyClass;
-	int* nums = new int[100000];
+	MyClass* ptr = smart_new MyClass;	// 400 bytes
+	int* nums = new int[100000];		// 100000 * 4 = 400,000 bytes
 
 	/*
 	std::cout << "Template new allocation test. \n";

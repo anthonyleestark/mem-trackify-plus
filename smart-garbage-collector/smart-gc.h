@@ -6,6 +6,73 @@
  * 
  */
 
+
+ // ================================================================================
+ // Macros definition for usage
+ // ================================================================================
+
+/**
+ * NOTE: In order to use Smart Garbage Collection library or to enable/disable
+ *		 specific modes, define these corresponding macros somewhere in your code.
+ *		 Please read this carefully before using any of these macros and
+ *		 importing Smart Garbage Collection feature for your C++ program.
+ *
+ * HOW TO USE:
+ *
+ *   SMART_GC_DEBUG
+ *		- Enable debugging mode.
+ *		- With this macro, you can track Debugging information (filename, line number)
+ *		  for allocation/deallocation.
+ *
+ *   SMART_GC_THREADSAFETY
+ *		- Ensure thread-safety when tracking allocation/deallocation.
+ *		- If your program has no multi-threads, you can skip this macro.
+ *
+ *   SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+ *		- Display memory leak report and garbage collecting progress on program termination.
+ *		- Only enable this macro if you're using a Console Application.
+ *
+ *   SMART_GC_NOTOVERRIDE_GLOBAL_NEW
+ *   SMART_GC_NOTOVERRIDE_GLOBAL_DELETE
+ *		- By default, this library has overriden the global new/delete operators.
+ *      - In some cases, this may conflicts some of your other libraries, modules,
+ *		  or maybe part of your program architecture, or may cause unexpected behaviors.
+ *		- We also provided some methods as replacements for default new/delete operators,
+ *		  use them instead if you want to ensure safety for your program.
+ *		- Define this macros if you want to disable the default overidden global new/delete operators.
+ *
+ *	 smart_new
+ *   smart_delete
+ *		Use these macros to ensure using this libaray's overriden smart new/delete operators.
+ *		Example:
+ *			int* ptr = smart_new int[100];
+ *			smart_delete ptr;
+ *
+ *	 debug_new
+ *   debug_delete
+ *		- Use these macros to ensure using debug version of this libaray's overriden smart new/delete operators.
+ *		- These macros only work if SMART_GC_DEBUG is defined and enabled.
+ *		Example:
+ *			int* ptr = debug_new int[100];
+ *			debug_delete ptr;
+ *
+ */
+
+/**
+ * Example:
+ *	 #define SMART_GC_DEBUG
+ *	 #define SMART_GC_THREADSAFETY
+ *	 #define SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+ *	 #include "smart-gc.h"
+ *
+ */
+
+
+// ===========================================================
+// C++ Smart Garbage Collection Library
+// ===========================================================
+
+
 #ifndef _SMART_GARBAGE_COLLECTION_CPP_INCLUDED_
 #define _SMART_GARBAGE_COLLECTION_CPP_INCLUDED_
 
@@ -29,6 +96,67 @@
 #include <vector>
 #include <unordered_map>
 
+
+// ===========================================================
+// C++ Version and preprocessing macro definition check
+// ===========================================================
+
+#ifdef __cplusplus
+	#if defined(_MSVC_LANG) && _MSVC_LANG > __cplusplus
+		#define _STL_LANG _MSVC_LANG
+	#else  // ^^^ language mode is _MSVC_LANG / language mode is __cplusplus vvv
+		#define _STL_LANG __cplusplus
+	#endif // ^^^ language mode is larger of _MSVC_LANG and __cplusplus ^^^
+#else  // ^^^ determine compiler's C++ mode / no C++ support vvv
+	#define _STL_LANG 0L
+#endif // ^^^ no C++ support ^^^
+
+#ifndef _HAS_CXX17
+	#if _STL_LANG > 201402L
+		#define _HAS_CXX17 1
+	#else
+		#define _HAS_CXX17 0
+	#endif
+#endif // _HAS_CXX17
+
+#ifndef _HAS_CXX20
+	#if _HAS_CXX17 && _STL_LANG > 201703L
+		#define _HAS_CXX20 1
+	#else
+		#define _HAS_CXX20 0
+	#endif
+#endif // _HAS_CXX20
+
+#ifndef _HAS_CXX23
+	#if _HAS_CXX20 && _STL_LANG > 202002L
+		#define _HAS_CXX23 1
+	#else
+		#define _HAS_CXX23 0
+	#endif
+#endif // _HAS_CXX23
+
+#ifndef _HAS_CXX26
+	#if _HAS_CXX23 && _STL_LANG > 202302L
+		#define _HAS_CXX26 1
+	#else
+		#define _HAS_CXX26 0
+	#endif
+#endif // _HAS_CXX26
+
+#undef _STL_LANG
+
+#if _HAS_CXX20 && !_HAS_CXX17
+	#error _HAS_CXX20 must imply _HAS_CXX17.
+#endif
+
+#if _HAS_CXX23 && !_HAS_CXX20
+	#error _HAS_CXX23 must imply _HAS_CXX20.
+#endif
+
+#if _HAS_CXX26 && !_HAS_CXX23
+	#error _HAS_CXX26 must imply _HAS_CXX23.
+#endif
+
 // [[nodiscard]] attributes on STL functions
 #ifndef _NODISCARD
 	#ifndef _HAS_NODISCARD
@@ -47,67 +175,6 @@
 		#define _NODISCARD
 	#endif // _HAS_NODISCARD
 #endif _NODISCARD
-
-
-// ================================================================================
-// Macros definition for usage
-// ================================================================================
-
-/**
- * NOTE: In order to use Smart Garbage Collection library or to enable/disable
- *		 specific modes, define these corresponding macros somewhere in your code.
- *		 Please read this carefully before using any of these macros and
- *		 importing Smart Garbage Collection feature for your C++ program.
- * 
- * HOW TO USE:
- *
- *   SMART_GC_DEBUG
- *		- Enable debugging mode.
- *		- With this macro, you can track Debugging information (filename, line number) 
- *		  for allocation/deallocation.
- *
- *   SMART_GC_THREADSAFETY
- *		- Ensure thread-safety when tracking allocation/deallocation.
- *		- If your program has no multi-threads, you can skip this macro.
- *
- *   SMART_GC_CONSOLE_REPORT_ON_TERMINATION
- *		- Display memory leak report and garbage collecting progress on program termination.
- *		- Only enable this macro if you're using a Console Application.
- *
- *   SMART_GC_NOTOVERRIDE_GLOBAL_NEW
- *   SMART_GC_NOTOVERRIDE_GLOBAL_DELETE
- *		- By default, this library has overriden the global new/delete operators.
- *      - In some cases, this may conflicts some of your other libraries, modules,
- *		  or maybe part of your program architecture, or may cause unexpected behaviors.
- *		- We also provided some methods as replacements for default new/delete operators,
- *		  use them instead if you want to ensure safety for your program.
- *		- Define this macros if you want to disable the default overidden global new/delete operators.
- * 
- *	 smart_new
- *   smart_delete
- *		Use these macros to ensure using this libaray's overriden smart new/delete operators.
- *		Example:
- *			int* ptr = smart_new int[100];
- *			smart_delete ptr;
- * 
- *	 debug_new
- *   debug_delete
- *		- Use these macros to ensure using debug version of this libaray's overriden smart new/delete operators.
- *		- These macros only work if SMART_GC_DEBUG is defined and enabled.
- *		Example:
- *			int* ptr = debug_new int[100];
- *			debug_delete ptr;
- *   
- */
-
-/**
- * Example:
- *	 #define SMART_GC_DEBUG
- *	 #define SMART_GC_THREADSAFETY
- *	 #define SMART_GC_CONSOLE_REPORT_ON_TERMINATION
- *	 #include "smart-gc.h"
- * 
- */
 
 
 // ================================================================================
@@ -349,12 +416,27 @@ private:
 
 
 // ================================================================================
-// Global tracker declaration
+// Declare global tracker to handle memory allocation tracking and leak detection
 // ================================================================================
 
-// Global object to handle memory allocation tracking and leak detection
-SmartGarbageCollector __g_gcSmartGarbageCollector;
-_NODISCARD inline SmartGarbageCollector* gcGetSmartGarbageCollector(void) { return &__g_gcSmartGarbageCollector; };
+class __smart_gc_global final /* non-inheritable */ {
+	// To prevent from directly accessing
+#if _HAS_CXX17
+	static inline SmartGarbageCollector __g_gcSmartGarbageCollector;
+#else
+	static SmartGarbageCollector __g_gcSmartGarbageCollector;
+#endif
+	virtual void __smart_gc_global_dummy_func() = 0; /* non-instantiable */
+public:
+	_NODISCARD static SmartGarbageCollector* __get(void) {
+		return &__g_gcSmartGarbageCollector;
+	};
+};
+
+// Access the global Smart Garbage Collector
+_NODISCARD inline SmartGarbageCollector* gcGetSmartGarbageCollector(void) {
+	return __smart_gc_global::__get();
+};
 
 
 // ================================================================================
@@ -514,13 +596,24 @@ void gcDeleteArray(_Ptr_type* ptr, _Elem_count count) {
 // Mask default 'new/delete' operators with debug tracking info
 // This will ensure the allocation is logged with file/line info
 #ifndef SMART_GC_NOTOVERRIDE_GLOBAL_NEW
-	#define smart_new						new
-	#define smart_delete					delete
+	#define smart_new					new
+	#define smart_new_array				new[]
+	#define smart_delete				delete
+	#define smart_delete_array			delete[]
 	#ifdef SMART_GC_DEBUG
 		#undef smart_new
+		#undef smart_new_array
 		#define smart_new				new(__FILE__, __LINE__)
+		#define smart_new_array			new[](__FILE__, __LINE__)
 		#define debug_new				new(__FILE__, __LINE__)
+		#define debug_new_array			new[](__FILE__, __LINE__)
 		#define debug_delete			delete
+		#define debug_delete_array		delete[]
 	#endif // SMART_GC_DEBUG
+#else
+	#define smart_new					gcNew
+	#define smart_new_array				gcNewArray
+	#define smart_delete				gcDelete
+	#define smart_delete_array			gcDeleteArray
 #endif	// !SMART_GC_NOTOVERRIDE_GLOBAL_NEW
 #endif	// if !defined _SMART_GARBAGE_COLLECTION_CPP_INCLUDED_
