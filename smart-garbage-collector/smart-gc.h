@@ -13,8 +13,9 @@
 
 /**
  * NOTE: In order to use Smart Garbage Collection library or to enable/disable
- *		 specific modes, define these corresponding macros somewhere in your code.
- *		 Please read this carefully before using any of these macros and
+ *		 specific modes, define these corresponding macros before including this header,
+ *		 or in the Preprocessor Definitions section of your project settings.
+ *		 Please read this note carefully before using any of these macros and
  *		 importing Smart Garbage Collection feature for your C++ program.
  *
  * HOW TO USE:
