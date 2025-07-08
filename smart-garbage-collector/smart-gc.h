@@ -1,8 +1,8 @@
-/*
- * smart-gc.h 
- * A very simple C++ Smart Garbage Collection Library
- * Copyright (c) 2025 Anthony Lee Stark. All rights reserved.
- * Released under MIT License
+﻿/**
+ * @file		smart-gc.h 
+ * @description A very simple C++ Smart Garbage Collection Library
+ * @copyright	Copyright (c) 2025 Anthony Lee Stark. All rights reserved.
+ * @license		Released under MIT License
  * 
  */
 
@@ -22,19 +22,38 @@
 #include <new>			// for std::bad_alloc
 
 #ifdef SMART_GC_THREADSAFETY
-#include <mutex>
+	#include <mutex>
 #endif // SMART_GC_THREADSAFETY
 
 #include <atomic>
 #include <vector>
 #include <unordered_map>
 
+// [[nodiscard]] attributes on STL functions
+#ifndef _NODISCARD
+	#ifndef _HAS_NODISCARD
+		#ifndef __has_cpp_attribute
+			#define _HAS_NODISCARD 0
+		#elif __has_cpp_attribute(nodiscard) >= 201603L // TRANSITION, VSO#939899 (need toolset update)
+			#define _HAS_NODISCARD 1
+		#else
+			#define _HAS_NODISCARD 0
+		#endif
+	#endif // _HAS_NODISCARD
+
+	#if _HAS_NODISCARD
+		#define _NODISCARD [[nodiscard]]
+	#else // ^^^ CAN HAZ [[nodiscard]] / NO CAN HAZ [[nodiscard]] vvv
+		#define _NODISCARD
+	#endif // _HAS_NODISCARD
+#endif _NODISCARD
+
 
 // ================================================================================
 // Macros definition for usage
 // ================================================================================
 
-/*
+/**
  * NOTE: In order to use Smart Garbage Collection library or to enable/disable
  *		 specific modes, define these corresponding macros somewhere in your code.
  *		 Please read this carefully before using any of these macros and
@@ -81,7 +100,7 @@
  *   
  */
 
-/*
+/**
  * Example:
  *	 #define SMART_GC_DEBUG
  *	 #define SMART_GC_THREADSAFETY
@@ -126,36 +145,177 @@ private:
 #endif // SMART_GC_THREADSAFETY
 
 public:
-	SmartGarbageCollector();
-	~SmartGarbageCollector();
+	// Constructor
+	SmartGarbageCollector() {
+		_allocTrackData.reserve(64);
+		_isTrackerInitialized = true;
+	};
+
+	// Destructor
+	~SmartGarbageCollector() {
+#ifdef SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+		this->gcPrintLeakInfo(std::cout);
+#endif // SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+
+		// Automatically execute garbage collection at termination
+		if (gcIsMemoryLeak()) {
+#ifdef SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+			std::cout << "\n--- Executing garbage collection ---\n";
+#endif // SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+			for (const auto& info : _allocTrackData) {
+				if (info.first) {
+#ifdef SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+					std::cout << "  Freed " << info.second._size << " bytes at " << info.first << ".\n";
+#endif // SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+					std::free(info.first);  // Clean up
+				}
+			}
+
+			// Clean up the tracking data itself
+			_allocTrackData.clear();
+		}
+	};
 
 public:
 	// Define static functions for smart allocation/deallocation
 #ifndef SMART_GC_DEBUG
-	static void* gcSmartAlloc(size_t size, bool isArray);
+	_NODISCARD static inline void* gcSmartAlloc(size_t size, bool isArray);
 #else
-	static void* gcSmartAlloc(size_t size, const char* file, int line, bool isArray);
+	_NODISCARD static inline void* gcSmartAlloc(size_t size, const char* file, int line, bool isArray);
 #endif // !SMART_GC_DEBUG
-	static void gcSmartFree(void* ptr, bool isArray) noexcept;
+	static inline void gcSmartFree(void* ptr, bool isArray) noexcept;
 	static inline void gcSmartDealloc(void* ptr, bool isArray) noexcept { gcSmartFree(ptr, isArray); };
 
 private:
 	// Request memory allocation and store debug tracking info
-	void* gcAlloc(size_t size, const char* file, int line, bool isArray);
+	_NODISCARD void* gcAlloc(size_t size, const char* file, int line, bool isArray) {
+		// Invalid size
+		if (size == 0) return nullptr;
+
+		// Skip re-entry during tracker map initialization
+		thread_local bool _in_gcAlloc = false;
+		if (_in_gcAlloc) return std::malloc(size);
+
+		// Ensure the flag is automatically reset
+		GCAllocGuard guard(_in_gcAlloc);
+
+		// Allocate memory block
+		void* ptr = std::malloc(size);
+		if (!ptr) throw std::bad_alloc();
+
+#ifdef SMART_GC_THREADSAFETY
+		MutexLockGuard _lock(_Mymutex);
+#endif // SMART_GC_THREADSAFETY
+
+		// Track allocation info
+		if (ptr && (reinterpret_cast<uintptr_t>(ptr) > 0x10000)
+			/* only track when the track map is initialized */
+			&& _isTrackerInitialized.load(std::memory_order_acquire)) {
+
+#ifndef SMART_GC_DEBUG
+			_allocTrackData.insert(AllocTrackObj(ptr, { size, isArray }));
+#else
+			_allocTrackData.insert(AllocTrackObj(ptr, { size, isArray, { file, line } }));
+#endif // !SMART_GC_DEBUG
+		}
+		return ptr;
+	};
 
 	// Request memory deallocation and clear the pointer debug tracking info
-	void gcDealloc(void* ptr, bool isArray) noexcept;
+	void gcDealloc(void* ptr, bool isArray) noexcept {
+		// Not a valid pointer
+		if (!ptr) return;
+
+#ifdef SMART_GC_THREADSAFETY
+		MutexLockGuard lock(_Mymutex);
+#endif // SMART_GC_THREADSAFETY
+
+		// Check the allocation info and free memory
+		if (!gcIsMemoryLeak()) return;
+		auto it = _allocTrackData.find(ptr);
+		if (it != _allocTrackData.end())
+			if (it->first == ptr && it->second._is_array == isArray) {
+				_allocTrackData.erase(it);		// Remove the entry
+				std::free(ptr);					// Default: Free memory
+			}
+	};
 
 public:
-	// Get tracking info
-	size_t gcGetTrackerSize(void) const;		// size in bytes
-	size_t gcGetMemorySize(void) const;		// size in bytes
-	size_t gcGetPtrCount(void) const;
+	// Get size of the allocation tracker (in bytes)
+	_NODISCARD size_t gcGetTrackerSize(void) const {
+		size_t _size = 0;
+		if (gcIsMemoryLeak())
+			for (const auto& info : _allocTrackData) {
+				_size += sizeof(info.first);
+				_size += sizeof(info.second);
+			}
 
-	// Report leak memory tracking data
-	bool gcIsMemoryLeak(void) const;
-	LeakReport gcGetLeakReport(void) const noexcept;
-	void gcPrintLeakInfo(std::ostream& os) const noexcept;
+		return _size;
+	};
+
+	// Get total tracked allocated memory sizes (in bytes)
+	_NODISCARD size_t gcGetMemorySize(void) const {
+		size_t _size = 0;
+		if (gcIsMemoryLeak())
+			for (const auto& info : _allocTrackData)
+				_size += info.second._size;
+
+		return _size;
+	};
+
+	// Get the number of tracking allocated memory blocks
+	_NODISCARD size_t gcGetPtrCount(void) const {
+#ifdef SMART_GC_THREADSAFETY
+		MutexLockGuard lock(_Mymutex);
+#endif // SMART_GC_THREADSAFETY
+		return _allocTrackData.size();
+	};
+
+	// Check if there are any allocated memory blocks in use or not yet freed
+	_NODISCARD bool gcIsMemoryLeak(void) const {
+#ifdef SMART_GC_THREADSAFETY
+		MutexLockGuard lock(_Mymutex);
+#endif // SMART_GC_THREADSAFETY
+		return (!_allocTrackData.empty());
+	};
+
+	// Get list of tracking data (as an array of string)
+	_NODISCARD LeakReport gcGetLeakReport(void) const noexcept {
+		LeakReport _report;
+		if (gcIsMemoryLeak()) {
+			for (const auto& info : _allocTrackData) {
+				StringStreamData oss;
+				oss << "Memory leaked: " << info.second._size << " bytes "
+					<< (info.second._is_array ? "of an array " : "")
+					<< "at " << info.first
+#ifdef SMART_GC_DEBUG
+					<< " in " << info.second._debug_info._file << " (line:" << info.second._debug_info._line << ")"
+#endif // SMART_GC_DEBUG
+					<< ".";
+				_report.push_back(oss.str());
+			}
+		}
+		return _report;
+	};
+
+	// Print tracking data (to file/console, ...)
+	void gcPrintLeakInfo(std::ostream& os) const noexcept {
+		if (gcIsMemoryLeak()) {
+			os << "\n--- Memory Leaks Detected ---\n";
+			for (const auto& info : _allocTrackData) {
+				os << "Memory leaked: " << info.second._size << " bytes "
+					<< (info.second._is_array ? "of an array " : "")
+					<< "at " << info.first
+#ifdef SMART_GC_DEBUG
+					<< " in " << info.second._debug_info._file << " (line:" << info.second._debug_info._line << ")"
+#endif // SMART_GC_DEBUG
+					<< ".\n";
+			}
+		}
+		else {
+			os << "\nNo memory leaks detected.\n";
+		}
+	};
 
 private:
 	// No copyable
@@ -179,8 +339,8 @@ private:
 	class GCAllocGuard {
 	public:
 		// Construction
-		GCAllocGuard(bool& flag) : _Myflag(flag) { _Myflag = true; }
-		~GCAllocGuard() { _Myflag = false; }
+		GCAllocGuard(bool& flag) : _Myflag(flag) { _Myflag = true; };
+		~GCAllocGuard() { _Myflag = false; };
 
 	private:
 		bool& _Myflag;
@@ -193,8 +353,38 @@ private:
 // ================================================================================
 
 // Global object to handle memory allocation tracking and leak detection
-extern SmartGarbageCollector __g_gcSmartGarbageCollector;
-inline SmartGarbageCollector* gcGetSmartGarbageCollector(void) { return &__g_gcSmartGarbageCollector; }
+SmartGarbageCollector __g_gcSmartGarbageCollector;
+_NODISCARD inline SmartGarbageCollector* gcGetSmartGarbageCollector(void) { return &__g_gcSmartGarbageCollector; };
+
+
+// ================================================================================
+// SmartGarbageCollector static inline function definitions
+// ================================================================================
+
+// Smart allocation
+#ifndef SMART_GC_DEBUG
+inline void* SmartGarbageCollector::gcSmartAlloc(size_t size, bool isArray) {
+	SmartGarbageCollector* _allocTracker = gcGetSmartGarbageCollector();
+	if (_allocTracker) return _allocTracker->gcAlloc(size, "null", -1, isArray);
+	return std::malloc(size);
+};
+#else
+inline void* SmartGarbageCollector::gcSmartAlloc(size_t size, const char* file, int line, bool isArray) {
+	SmartGarbageCollector* _allocTracker = gcGetSmartGarbageCollector();
+	if (_allocTracker) return _allocTracker->gcAlloc(size, file, line, isArray);
+	return std::malloc(size);
+};
+#endif // !SMART_GC_DEBUG
+
+// Smart deallocation
+inline void SmartGarbageCollector::gcSmartFree(void* ptr, bool isArray) noexcept {
+	if (!ptr) return;
+	SmartGarbageCollector* _allocTracker = gcGetSmartGarbageCollector();
+	if (_allocTracker)
+		_allocTracker->gcDealloc(ptr, isArray);
+	else
+		std::free(ptr);  // Default: Free memory
+};
 
 
 // ================================================================================
@@ -205,62 +395,62 @@ inline SmartGarbageCollector* gcGetSmartGarbageCollector(void) { return &__g_gcS
 #ifndef SMART_GC_DEBUG
 
 #ifndef __CRTDECL
-#define __CRTDECL	__cdecl
+	#define __CRTDECL	__cdecl
 #endif
 
 // Scalar new
 #ifdef _MSC_VER
-#pragma warning(disable:4595)
-_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
+	#pragma warning(disable:4595)
+	_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
 #endif // !_MSC_VER
 inline void* __CRTDECL operator new(std::size_t size) {
 	return SmartGarbageCollector::gcSmartAlloc(size, false);
-}
+};
 
 // Array new
 #ifdef _MSC_VER
-#pragma warning(disable:4595)
-_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
+	#pragma warning(disable:4595)
+	_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
 #endif // !_MSC_VER
 inline void* __CRTDECL operator new[](std::size_t size) {
 	return SmartGarbageCollector::gcSmartAlloc(size, true);
-}
+};
 
 #else
 // Scalar new
 #ifdef _MSC_VER
-#pragma warning(disable:4595)
+	#pragma warning(disable:4595)
 #endif // !_MSC_VER
-inline void* operator new(size_t size, const char* file, int line) {
+_NODISCARD inline void* operator new(size_t size, const char* file, int line) {
 	return SmartGarbageCollector::gcSmartAlloc(size, file, line, false);
-}
+};
 
 // Array new
 #ifdef _MSC_VER
-#pragma warning(disable:4595)
+	#pragma warning(disable:4595)
 #endif // !_MSC_VER
-inline void* operator new[](size_t size, const char* file, int line) {
+_NODISCARD inline void* operator new[](size_t size, const char* file, int line) {
 	return SmartGarbageCollector::gcSmartAlloc(size, file, line, true);
-}
+};
 #endif // !SMART_GC_DEBUG
 #endif // !SMART_GC_NOTOVERRIDE_GLOBAL_NEW
 
 #ifndef SMART_GC_NOTOVERRIDE_GLOBAL_DELETE
 // Scalar delete
 #ifdef _MSC_VER
-#pragma warning(disable:4595)
+	#pragma warning(disable:4595)
 #endif // !_MSC_VER
 inline void __CRTDECL operator delete(void* ptr) noexcept {
 	SmartGarbageCollector::gcSmartFree(ptr, false);
-}
+};
 
 // Array delete
 #ifdef _MSC_VER
-#pragma warning(disable:4595)
+	#pragma warning(disable:4595)
 #endif // !_MSC_VER
 inline void __CRTDECL operator delete[](void* ptr) noexcept {
 	SmartGarbageCollector::gcSmartFree(ptr, true);
-}
+};
 #endif // !SMART_GC_NOTOVERRIDE_GLOBAL_DELETE
 
 
@@ -270,8 +460,9 @@ inline void __CRTDECL operator delete[](void* ptr) noexcept {
 // Note: These template functions do not support debugging mode (SMART_GC_DEBUG)
 // ================================================================================
 
+// Scalar new
 template<typename _Ptr_type, typename... _Args>
-_Ptr_type* gcNew(_Args&&... args) {
+_NODISCARD _Ptr_type* gcNew(_Args&&... args) {
 #ifndef SMART_GC_DEBUG
 	_Ptr_type* _ptr = static_cast<_Ptr_type*>(SmartGarbageCollector::gcSmartAlloc(sizeof(_Ptr_type), false));
 #else
@@ -280,10 +471,11 @@ _Ptr_type* gcNew(_Args&&... args) {
 	if (_ptr != nullptr)
 		return new(_ptr) _Ptr_type(std::forward<_Args>(args)...);
 	return _ptr;
-}
+};
 
+// Array new
 template<typename _Ptr_type, typename _Elem_count = std::size_t>
-_Ptr_type* gcNewArray(_Elem_count count) {
+_NODISCARD _Ptr_type* gcNewArray(_Elem_count count) {
 #ifndef SMART_GC_DEBUG
 	_Ptr_type* _ptr = static_cast<_Ptr_type*>(SmartGarbageCollector::gcSmartAlloc(sizeof(_Ptr_type) * count, false));
 #else
@@ -293,16 +485,18 @@ _Ptr_type* gcNewArray(_Elem_count count) {
 		for (_Elem_count i = 0; i < count; ++i)
 			::new (&_ptr[i]) _Ptr_type();
 	return _ptr;
-}
+};
 
+// Scalar delete
 template<typename _Ptr_type>
 void gcDelete(_Ptr_type* ptr) {
 	if (ptr) {
 		ptr->~_Ptr_type();
 		SmartGarbageCollector::gcSmartFree(ptr, false);
 	}
-}
+};
 
+// Array delete
 template<typename _Ptr_type, typename _Elem_count = std::size_t>
 void gcDeleteArray(_Ptr_type* ptr, _Elem_count count) {
 	if (ptr) {
@@ -310,7 +504,7 @@ void gcDeleteArray(_Ptr_type* ptr, _Elem_count count) {
 			ptr[i].~_Ptr_type();
 		SmartGarbageCollector::gcSmartFree(ptr, true);
 	}
-}
+};
 
 
 // ================================================================================
