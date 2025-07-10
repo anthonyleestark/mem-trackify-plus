@@ -1,24 +1,23 @@
 ﻿/**
- * @file		smart-gc-example.cpp
- * @description Example usage of Smart Garbage Collection Library
+ * @file		mem-trackify-plus_example.cpp
+ * @brief 		Example usage of MemTrackify++ Library
  * @copyright	Copyright (c) 2025 Anthony Lee Stark. All rights reserved.
- * @license		Released under MIT License
+ * @details		Released under MIT License
  *
  */
 
 #include <iostream>
 #include <vector>
 
-#define SMART_GC_OVERRIDE_NEW
-//#define SMART_GC_CONSOLE_REPORT_ON_TERMINATION			// uncomment this to view console report result
-#include "smart-gc.h"
+#define _MTP_CONSOLE_REPORT_ON_TERMINATION			// uncomment this to view console report result
+#include "mem_trackify.h"
 
 //// default testing
 #define DEFAULT_TEST
 
 //// stress testing
 //#define STRESS_TEST
-//#define VIEW_EACH_ELEMENT_DELETION						// uncomment this to view console result on deletion of each element
+#define VIEW_EACH_ELEMENT_DELETION						// uncomment this to view console result on deletion of each element
 
 #if defined(DEFAULT_TEST)
 
@@ -31,14 +30,14 @@ int main()
 	// Entry information
 	std::cout << "Normal allocation test. \n";
 
-	MyClass* ptr = smart_new MyClass;	// 400 bytes
+	MyClass* ptr = track_new MyClass;	// 400 bytes
 	int* nums = new int[100000];		// 100000 * 4 = 400,000 bytes
 
 	/*
 	std::cout << "Template new allocation test. \n";
 
-	int* i_ptr = gcNew<int>(15);
-	int* arr_ptr = gcNewArray<int>(30);
+	int* i_ptr = smartNew<int>(15);
+	int* arr_ptr = smartNewArray<int>(30);
 	*/
 
 	/*
@@ -49,19 +48,21 @@ int main()
 	float* c = new float[7];
 	*/
 
-	SmartGarbageCollector* pGC = gcGetSmartGarbageCollector();
-	if (pGC) {
+	MemTrackifyPlus* pTracker = getGlobalMemTracker();
+	if (pTracker) {
 		std::cout << "\n--- Checking tracker and allocated memory size ---\n";
-		size_t gcTrackerSize = pGC->gcGetTrackerSize();
-		std::cout << "Memory tracker size: " << gcTrackerSize << " bytes. \n";
-		size_t gcAllocMemSize = pGC->gcGetMemorySize();
-		std::cout << "Memory allocated size: " << gcAllocMemSize << " bytes. \n";
+		size_t trackerSize = pTracker->getTrackerSize();
+		std::cout << "Memory tracker size: " << trackerSize << " bytes.\n";
+		size_t ptrCount = pTracker->getPtrCount();
+		std::cout << "Number of allocated pointers: " << ptrCount << ".\n";
+		size_t allocMemSize = pTracker->getMemorySize();
+		std::cout << "Memory allocated size: " << allocMemSize << " bytes.\n";
 	}
 
 	delete ptr;			// Just an example, you actually don't need this
 	// delete nums;		// It's okay
 
-#if !defined(_DEBUG) || defined(SMART_GC_CONSOLE_REPORT_ON_TERMINATION)
+#if !defined(_DEBUG) || defined(_MTP_CONSOLE_REPORT_ON_TERMINATION)
 	system("pause");
 #endif
 
@@ -176,7 +177,7 @@ int main()
 	my_vector.clear();
 	std::cout << "\nClean up done!!!\n";
 
-#if !defined(_DEBUG) || defined(SMART_GC_CONSOLE_REPORT_ON_TERMINATION)
+#if !defined(_DEBUG) || defined(_MTP_CONSOLE_REPORT_ON_TERMINATION)
 	system("pause");
 #endif
 

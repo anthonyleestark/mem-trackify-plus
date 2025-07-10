@@ -1,15 +1,16 @@
 ﻿/**
- * @file		smart-gc.cpp
- * @description A very simple C++ Smart Garbage Collection Library
+ * @file		mem_trackify.cpp
+ * @brief		A very simple, lightweight, header-only C++ library designed to
+ *				track memory allocations and deallocations throughout the lifetime of a program.
  * @copyright	Copyright (c) 2025 Anthony Lee Stark. All rights reserved.
- * @license		Released under MIT License
+ * @details		Released under MIT License
  *
  * @note		No need to add this file to your project if you are using C++ 17 or later
  *
  */
 
 
-#include "smart-gc.h"
+#include "mem_trackify.h"
 
 
 // ================================================================================
@@ -18,5 +19,5 @@
 
 #if !_HAS_CXX17
 	// Global tracker to handle memory allocations
-	SmartGarbageCollector __smart_gc_global::__g_gcSmartGarbageCollector;
+	MemTrackifyPlus __mem_trackify_global::__g_mtpGlobalTracker;
 #endif

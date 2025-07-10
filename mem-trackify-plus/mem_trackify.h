@@ -1,8 +1,9 @@
 ﻿/**
- * @file		smart-gc.h 
- * @description A very simple C++ Smart Garbage Collection Library
+ * @file		mem_trackify.h 
+ * @brief 		A very simple, lightweight, header-only C++ library designed to
+ *				track memory allocations and deallocations throughout the lifetime of a program.
  * @copyright	Copyright (c) 2025 Anthony Lee Stark. All rights reserved.
- * @license		Released under MIT License
+ * @details		Released under MIT License
  * 
  */
 
@@ -12,29 +13,28 @@
  // ================================================================================
 
 /**
- * NOTE: In order to use Smart Garbage Collection library or to enable/disable
+ * NOTE: In order to use this MemTrack++ library or to enable/disable
  *		 specific modes, define these corresponding macros before including this header,
  *		 or in the Preprocessor Definitions section of your project settings.
  *		 Please read this note carefully before using any of these macros and
- *		 importing Smart Garbage Collection feature for your C++ program.
+ *		 importing memory tracking feature for your C++ program.
  *
  * HOW TO USE:
  *
- *   SMART_GC_DEBUG
+ *   _MTP_DEBUG
  *		- Enable debugging mode.
  *		- With this macro, you can track Debugging information (filename, line number)
- *		  for allocation/deallocation.
+ *		  for memory allocations/deallocations.
  *
- *   SMART_GC_THREADSAFETY
- *		- Ensure thread-safety when tracking allocation/deallocation.
+ *   _MTP_THREADSAFETY
+ *		- Ensure thread-safety when tracking memory allocations/deallocations.
  *		- If your program has no multi-threads, you can skip this macro.
  *
- *   SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+ *   _MTP_CONSOLE_REPORT_ON_TERMINATION
  *		- Display memory leak report and garbage collecting progress on program termination.
  *		- Only enable this macro if you're using a Console Application.
  *
- *   SMART_GC_NOTOVERRIDE_GLOBAL_NEW
- *   SMART_GC_NOTOVERRIDE_GLOBAL_DELETE
+ *   _MTP_NO_OVERRIDE_GLOBAL_OPERATORS
  *		- By default, this library has overriden the global new/delete operators.
  *      - In some cases, this may conflicts some of your other libraries, modules,
  *		  or maybe part of your program architecture, or may cause unexpected behaviors.
@@ -42,17 +42,17 @@
  *		  use them instead if you want to ensure safety for your program.
  *		- Define this macros if you want to disable the default overidden global new/delete operators.
  *
- *	 smart_new
- *   smart_delete
- *		Use these macros to ensure using this libaray's overriden smart new/delete operators.
+ *	 track_new
+ *   track_delete
+ *		Use these macros to ensure using this libaray's overriden global tracking new/delete operators.
  *		Example:
- *			int* ptr = smart_new int[100];
- *			smart_delete ptr;
+ *			int* ptr = track_new int[100];
+ *			track_delete ptr;
  *
  *	 debug_new
  *   debug_delete
- *		- Use these macros to ensure using debug version of this libaray's overriden smart new/delete operators.
- *		- These macros only work if SMART_GC_DEBUG is defined and enabled.
+ *		- Use these macros to ensure using debug version of this libaray's overriden global tracking new/delete operators.
+ *		- These macros only work if _MTP_DEBUG is defined and enabled.
  *		Example:
  *			int* ptr = debug_new int[100];
  *			debug_delete ptr;
@@ -61,21 +61,21 @@
 
 /**
  * Example:
- *	 #define SMART_GC_DEBUG
- *	 #define SMART_GC_THREADSAFETY
- *	 #define SMART_GC_CONSOLE_REPORT_ON_TERMINATION
- *	 #include "smart-gc.h"
+ *	 #define _MTP_DEBUG
+ *	 #define _MTP_THREADSAFETY
+ *	 #define _MTP_CONSOLE_REPORT_ON_TERMINATION
+ *	 #include "mem_trackify.h"
  *
  */
 
 
 // ===========================================================
-// C++ Smart Garbage Collection Library
+// C++ Memory Tracking Library
 // ===========================================================
 
 
-#ifndef _SMART_GARBAGE_COLLECTION_CPP_INCLUDED_
-#define _SMART_GARBAGE_COLLECTION_CPP_INCLUDED_
+#ifndef _MEM_TRACKIFY_PLUS_INCLUDED_
+#define _MEM_TRACKIFY_PLUS_INCLUDED_
 
 #pragma once
 
@@ -89,9 +89,9 @@
 
 #include <new>			// for std::bad_alloc
 
-#ifdef SMART_GC_THREADSAFETY
+#ifdef _MTP_THREADSAFETY
 	#include <mutex>
-#endif // SMART_GC_THREADSAFETY
+#endif // _MTP_THREADSAFETY
 
 #include <atomic>
 #include <vector>
@@ -182,20 +182,20 @@
 // Class/struct declaration
 // ================================================================================
 
-// Allocation tracking and leak detection
-class SmartGarbageCollector 
+// Memory allocations/deallocations tracking and leak detection
+class MemTrackifyPlus 
 {
 public:
-	struct GCDebugInfo {
+	struct MTPDebugInfo {
 		const char* _file;
 		int			_line;
 	};
 	struct AllocInfo {			// Struct to hold allocation information
 		size_t		_size;
 		bool		_is_array;
-#ifdef SMART_GC_DEBUG
-		GCDebugInfo _debug_info;
-#endif // SMART_GC_DEBUG
+#ifdef _MTP_DEBUG
+		MTPDebugInfo _debug_info;
+#endif // _MTP_DEBUG
 	};
 
 private:
@@ -207,34 +207,34 @@ private:
 	using AllocTrackData	= typename std::unordered_map<Address, AllocInfo>;
 	using LeakReport		= typename std::vector<StringData>;
 
-#ifdef SMART_GC_THREADSAFETY
+#ifdef _MTP_THREADSAFETY
 	using MutexObj			= typename std::recursive_mutex;
 	using MutexLockGuard	= typename std::lock_guard<MutexObj>;
-#endif // SMART_GC_THREADSAFETY
+#endif // _MTP_THREADSAFETY
 
 public:
 	// Constructor
-	SmartGarbageCollector() {
+	MemTrackifyPlus() {
 		_allocTrackData.reserve(64);
 		_isTrackerInitialized = true;
 	};
 
 	// Destructor
-	~SmartGarbageCollector() {
-#ifdef SMART_GC_CONSOLE_REPORT_ON_TERMINATION
-		this->gcPrintLeakInfo(std::cout);
-#endif // SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+	~MemTrackifyPlus() {
+#ifdef _MTP_CONSOLE_REPORT_ON_TERMINATION
+		this->printLeakInfo(std::cout);
+#endif // _MTP_CONSOLE_REPORT_ON_TERMINATION
 
 		// Automatically execute garbage collection at termination
-		if (gcIsMemoryLeak()) {
-#ifdef SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+		if (isMemoryLeak()) {
+#ifdef _MTP_CONSOLE_REPORT_ON_TERMINATION
 			std::cout << "\n--- Executing garbage collection ---\n";
-#endif // SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+#endif // _MTP_CONSOLE_REPORT_ON_TERMINATION
 			for (const auto& info : _allocTrackData) {
 				if (info.first) {
-#ifdef SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+#ifdef _MTP_CONSOLE_REPORT_ON_TERMINATION
 					std::cout << "  Freed " << info.second._size << " bytes at " << info.first << ".\n";
-#endif // SMART_GC_CONSOLE_REPORT_ON_TERMINATION
+#endif // _MTP_CONSOLE_REPORT_ON_TERMINATION
 					std::free(info.first);  // Clean up
 				}
 			}
@@ -246,17 +246,17 @@ public:
 
 public:
 	// Define static functions for smart allocation/deallocation
-#ifndef SMART_GC_DEBUG
-	_NODISCARD static inline void* gcSmartAlloc(size_t size, bool isArray);
+#ifndef _MTP_DEBUG
+	_NODISCARD static inline void* smartAlloc(size_t size, bool isArray);
 #else
-	_NODISCARD static inline void* gcSmartAlloc(size_t size, const char* file, int line, bool isArray);
-#endif // !SMART_GC_DEBUG
-	static inline void gcSmartFree(void* ptr, bool isArray) noexcept;
-	static inline void gcSmartDealloc(void* ptr, bool isArray) noexcept { gcSmartFree(ptr, isArray); };
+	_NODISCARD static inline void* smartAlloc(size_t size, const char* file, int line, bool isArray);
+#endif // !_MTP_DEBUG
+	static inline void smartFree(void* ptr, bool isArray);
+	static inline void smartDealloc(void* ptr, bool isArray) { smartFree(ptr, isArray); };
 
 private:
 	// Request memory allocation and store debug tracking info
-	_NODISCARD void* gcAlloc(size_t size, const char* file, int line, bool isArray) {
+	_NODISCARD void* reqTrackAlloc(size_t size, const char* file, int line, bool isArray) {
 		// Invalid size
 		if (size == 0) return nullptr;
 
@@ -265,41 +265,41 @@ private:
 		if (_in_gcAlloc) return std::malloc(size);
 
 		// Ensure the flag is automatically reset
-		GCAllocGuard guard(_in_gcAlloc);
+		MTPAllocGuard guard(_in_gcAlloc);
 
 		// Allocate memory block
 		void* ptr = std::malloc(size);
 		if (!ptr) throw std::bad_alloc();
 
-#ifdef SMART_GC_THREADSAFETY
+#ifdef _MTP_THREADSAFETY
 		MutexLockGuard _lock(_Mymutex);
-#endif // SMART_GC_THREADSAFETY
+#endif // _MTP_THREADSAFETY
 
 		// Track allocation info
 		if (ptr && (reinterpret_cast<uintptr_t>(ptr) > 0x10000)
 			/* only track when the track map is initialized */
 			&& _isTrackerInitialized.load(std::memory_order_acquire)) {
 
-#ifndef SMART_GC_DEBUG
+#ifndef _MTP_DEBUG
 			_allocTrackData.insert(AllocTrackObj(ptr, { size, isArray }));
 #else
 			_allocTrackData.insert(AllocTrackObj(ptr, { size, isArray, { file, line } }));
-#endif // !SMART_GC_DEBUG
+#endif // !_MTP_DEBUG
 		}
 		return ptr;
 	};
 
 	// Request memory deallocation and clear the pointer debug tracking info
-	void gcDealloc(void* ptr, bool isArray) noexcept {
+	void reqTrackDealloc(void* ptr, bool isArray) {
 		// Not a valid pointer
 		if (!ptr) return;
 
-#ifdef SMART_GC_THREADSAFETY
+#ifdef _MTP_THREADSAFETY
 		MutexLockGuard lock(_Mymutex);
-#endif // SMART_GC_THREADSAFETY
+#endif // _MTP_THREADSAFETY
 
 		// Check the allocation info and free memory
-		if (!gcIsMemoryLeak()) return;
+		if (!isMemoryLeak()) return;
 		auto it = _allocTrackData.find(ptr);
 		if (it != _allocTrackData.end())
 			if (it->first == ptr && it->second._is_array == isArray) {
@@ -310,9 +310,9 @@ private:
 
 public:
 	// Get size of the allocation tracker (in bytes)
-	_NODISCARD size_t gcGetTrackerSize(void) const {
+	_NODISCARD size_t getTrackerSize(void) const {
 		size_t _size = 0;
-		if (gcIsMemoryLeak())
+		if (isMemoryLeak())
 			for (const auto& info : _allocTrackData) {
 				_size += sizeof(info.first);
 				_size += sizeof(info.second);
@@ -322,9 +322,9 @@ public:
 	};
 
 	// Get total tracked allocated memory sizes (in bytes)
-	_NODISCARD size_t gcGetMemorySize(void) const {
+	_NODISCARD size_t getMemorySize(void) const {
 		size_t _size = 0;
-		if (gcIsMemoryLeak())
+		if (isMemoryLeak())
 			for (const auto& info : _allocTrackData)
 				_size += info.second._size;
 
@@ -332,33 +332,33 @@ public:
 	};
 
 	// Get the number of tracking allocated memory blocks
-	_NODISCARD size_t gcGetPtrCount(void) const {
-#ifdef SMART_GC_THREADSAFETY
+	_NODISCARD size_t getPtrCount(void) const {
+#ifdef _MTP_THREADSAFETY
 		MutexLockGuard lock(_Mymutex);
-#endif // SMART_GC_THREADSAFETY
+#endif // _MTP_THREADSAFETY
 		return _allocTrackData.size();
 	};
 
 	// Check if there are any allocated memory blocks in use or not yet freed
-	_NODISCARD bool gcIsMemoryLeak(void) const {
-#ifdef SMART_GC_THREADSAFETY
+	_NODISCARD bool isMemoryLeak(void) const {
+#ifdef _MTP_THREADSAFETY
 		MutexLockGuard lock(_Mymutex);
-#endif // SMART_GC_THREADSAFETY
+#endif // _MTP_THREADSAFETY
 		return (!_allocTrackData.empty());
 	};
 
 	// Get list of tracking data (as an array of string)
-	_NODISCARD LeakReport gcGetLeakReport(void) const noexcept {
+	_NODISCARD LeakReport getLeakReport(void) const noexcept {
 		LeakReport _report;
-		if (gcIsMemoryLeak()) {
+		if (isMemoryLeak()) {
 			for (const auto& info : _allocTrackData) {
 				StringStreamData oss;
 				oss << "Memory leaked: " << info.second._size << " bytes "
 					<< (info.second._is_array ? "of an array " : "")
 					<< "at " << info.first
-#ifdef SMART_GC_DEBUG
+#ifdef _MTP_DEBUG
 					<< " in " << info.second._debug_info._file << " (line:" << info.second._debug_info._line << ")"
-#endif // SMART_GC_DEBUG
+#endif // _MTP_DEBUG
 					<< ".";
 				_report.push_back(oss.str());
 			}
@@ -367,16 +367,16 @@ public:
 	};
 
 	// Print tracking data (to file/console, ...)
-	void gcPrintLeakInfo(std::ostream& os) const noexcept {
-		if (gcIsMemoryLeak()) {
+	void printLeakInfo(std::ostream& os) const noexcept {
+		if (isMemoryLeak()) {
 			os << "\n--- Memory Leaks Detected ---\n";
 			for (const auto& info : _allocTrackData) {
 				os << "Memory leaked: " << info.second._size << " bytes "
 					<< (info.second._is_array ? "of an array " : "")
 					<< "at " << info.first
-#ifdef SMART_GC_DEBUG
+#ifdef _MTP_DEBUG
 					<< " in " << info.second._debug_info._file << " (line:" << info.second._debug_info._line << ")"
-#endif // SMART_GC_DEBUG
+#endif // _MTP_DEBUG
 					<< ".\n";
 			}
 		}
@@ -387,28 +387,28 @@ public:
 
 private:
 	// No copyable
-	SmartGarbageCollector(const SmartGarbageCollector&) = delete;
-	SmartGarbageCollector& operator=(const SmartGarbageCollector&) = delete;
+	MemTrackifyPlus(const MemTrackifyPlus&) = delete;
+	MemTrackifyPlus& operator=(const MemTrackifyPlus&) = delete;
 
 	// No movable
-	SmartGarbageCollector(const SmartGarbageCollector&&) = delete;
-	SmartGarbageCollector& operator=(const SmartGarbageCollector&&) = delete;
+	MemTrackifyPlus(const MemTrackifyPlus&&) = delete;
+	MemTrackifyPlus& operator=(const MemTrackifyPlus&&) = delete;
 
 private:
 	// Attributes
 	AllocTrackData		_allocTrackData;				// Stores all allocation info
 	AtomicFlag			_isTrackerInitialized = false;	// Check if the tracker finished initializing
-#ifdef SMART_GC_THREADSAFETY
+#ifdef _MTP_THREADSAFETY
 	mutable MutexObj	_Mymutex;						// Ensures thread-safety
-#endif // SMART_GC_THREADSAFETY
+#endif // _MTP_THREADSAFETY
 
 private:
-	// Ensure gcAlloc() function run correctly
-	class GCAllocGuard {
+	// Ensure trackAlloc() function run correctly
+	class MTPAllocGuard {
 	public:
 		// Construction
-		GCAllocGuard(bool& flag) : _Myflag(flag) { _Myflag = true; };
-		~GCAllocGuard() { _Myflag = false; };
+		MTPAllocGuard(bool& flag) : _Myflag(flag) { _Myflag = true; };
+		~MTPAllocGuard() { _Myflag = false; };
 
 	private:
 		bool& _Myflag;
@@ -420,51 +420,51 @@ private:
 // Declare global tracker to handle memory allocation tracking and leak detection
 // ================================================================================
 
-class __smart_gc_global final /* non-inheritable */ {
+class __mem_trackify_global final /* non-inheritable */ {
 	// To prevent from directly accessing
 #if _HAS_CXX17
-	static inline SmartGarbageCollector __g_gcSmartGarbageCollector;
+	static inline MemTrackifyPlus __g_mtpGlobalTracker;
 #else
-	static SmartGarbageCollector __g_gcSmartGarbageCollector;
+	static MemTrackifyPlus __g_mtpGlobalTracker;
 #endif
-	virtual void __smart_gc_global_dummy_func() = 0; /* non-instantiable */
+	virtual void __mem_trackify_global_dummy_func() = 0; /* non-instantiable */
 public:
-	_NODISCARD static SmartGarbageCollector* __get(void) {
-		return &__g_gcSmartGarbageCollector;
+	_NODISCARD static MemTrackifyPlus* __get(void) {
+		return &__g_mtpGlobalTracker;
 	};
 };
 
-// Access the global Smart Garbage Collector
-_NODISCARD inline SmartGarbageCollector* gcGetSmartGarbageCollector(void) {
-	return __smart_gc_global::__get();
+// Access the global Memory Tracker
+_NODISCARD inline MemTrackifyPlus* getGlobalMemTracker(void) {
+	return __mem_trackify_global::__get();
 };
 
 
 // ================================================================================
-// SmartGarbageCollector static inline function definitions
+// MemTrackifyPlus static inline function definitions
 // ================================================================================
 
 // Smart allocation
-#ifndef SMART_GC_DEBUG
-inline void* SmartGarbageCollector::gcSmartAlloc(size_t size, bool isArray) {
-	SmartGarbageCollector* _allocTracker = gcGetSmartGarbageCollector();
-	if (_allocTracker) return _allocTracker->gcAlloc(size, "null", -1, isArray);
+#ifndef _MTP_DEBUG
+inline void* MemTrackifyPlus::smartAlloc(size_t size, bool isArray) {
+	MemTrackifyPlus* _allocTracker = getGlobalMemTracker();
+	if (_allocTracker) return _allocTracker->reqTrackAlloc(size, "null", -1, isArray);
 	return std::malloc(size);
 };
 #else
-inline void* SmartGarbageCollector::gcSmartAlloc(size_t size, const char* file, int line, bool isArray) {
-	SmartGarbageCollector* _allocTracker = gcGetSmartGarbageCollector();
-	if (_allocTracker) return _allocTracker->gcAlloc(size, file, line, isArray);
+inline void* MemTrackifyPlus::smartAlloc(size_t size, const char* file, int line, bool isArray) {
+	MemTrackifyPlus* _allocTracker = getGlobalMemTracker();
+	if (_allocTracker) return _allocTracker->reqTrackAlloc(size, file, line, isArray);
 	return std::malloc(size);
 };
-#endif // !SMART_GC_DEBUG
+#endif // !_MTP_DEBUG
 
 // Smart deallocation
-inline void SmartGarbageCollector::gcSmartFree(void* ptr, bool isArray) noexcept {
+inline void MemTrackifyPlus::smartFree(void* ptr, bool isArray) {
 	if (!ptr) return;
-	SmartGarbageCollector* _allocTracker = gcGetSmartGarbageCollector();
+	MemTrackifyPlus* _allocTracker = getGlobalMemTracker();
 	if (_allocTracker)
-		_allocTracker->gcDealloc(ptr, isArray);
+		_allocTracker->reqTrackDealloc(ptr, isArray);
 	else
 		std::free(ptr);  // Default: Free memory
 };
@@ -474,57 +474,67 @@ inline void SmartGarbageCollector::gcSmartFree(void* ptr, bool isArray) noexcept
 // Override global new/delete operators
 // ================================================================================
 
-#ifndef SMART_GC_NOTOVERRIDE_GLOBAL_NEW
-#ifndef SMART_GC_DEBUG
+#ifndef _MTP_NO_OVERRIDE_GLOBAL_OPERATORS
+#ifndef _MTP_DEBUG
 
 #ifndef __CRTDECL
-	#define __CRTDECL	__cdecl
+	#define __CRTDECL __cdecl
 #endif
 
 // Scalar new
 #ifdef _MSC_VER
 	#pragma warning(disable:4595)
 	_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
+#else
+	_NODISCARD
 #endif // !_MSC_VER
 inline void* __CRTDECL operator new(std::size_t size) {
-	return SmartGarbageCollector::gcSmartAlloc(size, false);
+	return MemTrackifyPlus::smartAlloc(size, false);
 };
 
 // Array new
 #ifdef _MSC_VER
 	#pragma warning(disable:4595)
 	_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
+#else
+	_NODISCARD
 #endif // !_MSC_VER
 inline void* __CRTDECL operator new[](std::size_t size) {
-	return SmartGarbageCollector::gcSmartAlloc(size, true);
+	return MemTrackifyPlus::smartAlloc(size, true);
 };
 
 #else
 // Scalar new
 #ifdef _MSC_VER
 	#pragma warning(disable:4595)
+_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
+#else
+	_NODISCARD
 #endif // !_MSC_VER
-_NODISCARD inline void* operator new(size_t size, const char* file, int line) {
-	return SmartGarbageCollector::gcSmartAlloc(size, file, line, false);
+_NODISCARD inline void* operator new(std::size_t size, const char* file, int line) {
+	return MemTrackifyPlus::smartAlloc(size, file, line, false);
 };
 
 // Array new
 #ifdef _MSC_VER
 	#pragma warning(disable:4595)
+	_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(size) _VCRT_ALLOCATOR
+#else
+	_NODISCARD
 #endif // !_MSC_VER
-_NODISCARD inline void* operator new[](size_t size, const char* file, int line) {
-	return SmartGarbageCollector::gcSmartAlloc(size, file, line, true);
+_NODISCARD inline void* operator new[](std::size_t size, const char* file, int line) {
+	return MemTrackifyPlus::smartAlloc(size, file, line, true);
 };
-#endif // !SMART_GC_DEBUG
-#endif // !SMART_GC_NOTOVERRIDE_GLOBAL_NEW
+#endif // !_MTP_DEBUG
+#endif // !_MTP_NO_OVERRIDE_GLOBAL_OPERATORS
 
-#ifndef SMART_GC_NOTOVERRIDE_GLOBAL_DELETE
+#ifndef _MTP_NO_OVERRIDE_GLOBAL_OPERATORS
 // Scalar delete
 #ifdef _MSC_VER
 	#pragma warning(disable:4595)
 #endif // !_MSC_VER
 inline void __CRTDECL operator delete(void* ptr) noexcept {
-	SmartGarbageCollector::gcSmartFree(ptr, false);
+	MemTrackifyPlus::smartDealloc(ptr, false);
 };
 
 // Array delete
@@ -532,24 +542,24 @@ inline void __CRTDECL operator delete(void* ptr) noexcept {
 	#pragma warning(disable:4595)
 #endif // !_MSC_VER
 inline void __CRTDECL operator delete[](void* ptr) noexcept {
-	SmartGarbageCollector::gcSmartFree(ptr, true);
+	MemTrackifyPlus::smartDealloc(ptr, true);
 };
-#endif // !SMART_GC_NOTOVERRIDE_GLOBAL_DELETE
+#endif // !_MTP_NO_OVERRIDE_GLOBAL_OPERATORS
 
 
 // ================================================================================
 // Template replacements for new/delete, using when you don't want to override 
-// global new/delete operators (SMART_GC_NOTOVERRIDE_GLOBAL_NEW/DELETE), 
-// Note: These template functions do not support debugging mode (SMART_GC_DEBUG)
+// global new/delete operators (_MTP_NOTOVERRIDE_GLOBAL_NEW/DELETE), 
+// Note: These template functions do not support debugging mode (_MTP_DEBUG)
 // ================================================================================
 
 // Scalar new
 template<typename _Ptr_type, typename... _Args>
-_NODISCARD _Ptr_type* gcNew(_Args&&... args) {
-#ifndef SMART_GC_DEBUG
-	_Ptr_type* _ptr = static_cast<_Ptr_type*>(SmartGarbageCollector::gcSmartAlloc(sizeof(_Ptr_type), false));
+_NODISCARD _Ptr_type* smartNew(_Args&&... args) {
+#ifndef _MTP_DEBUG
+	_Ptr_type* _ptr = static_cast<_Ptr_type*>(MemTrackifyPlus::smartAlloc(sizeof(_Ptr_type), false));
 #else
-	_Ptr_type* _ptr = static_cast<_Ptr_type*>(SmartGarbageCollector::gcSmartAlloc(sizeof(_Ptr_type), "null", -1, false));
+	_Ptr_type* _ptr = static_cast<_Ptr_type*>(MemTrackifyPlus::smartAlloc(sizeof(_Ptr_type), "null", -1, false));
 #endif
 	if (_ptr != nullptr)
 		return new(_ptr) _Ptr_type(std::forward<_Args>(args)...);
@@ -558,11 +568,11 @@ _NODISCARD _Ptr_type* gcNew(_Args&&... args) {
 
 // Array new
 template<typename _Ptr_type, typename _Elem_count = std::size_t>
-_NODISCARD _Ptr_type* gcNewArray(_Elem_count count) {
-#ifndef SMART_GC_DEBUG
-	_Ptr_type* _ptr = static_cast<_Ptr_type*>(SmartGarbageCollector::gcSmartAlloc(sizeof(_Ptr_type) * count, false));
+_NODISCARD _Ptr_type* smartNewArray(_Elem_count count) {
+#ifndef _MTP_DEBUG
+	_Ptr_type* _ptr = static_cast<_Ptr_type*>(MemTrackifyPlus::gcSmartAlloc(sizeof(_Ptr_type) * count, false));
 #else
-	_Ptr_type* _ptr = static_cast<_Ptr_type*>(SmartGarbageCollector::gcSmartAlloc(sizeof(_Ptr_type) * count, "null", -1, false));
+	_Ptr_type* _ptr = static_cast<_Ptr_type*>(MemTrackifyPlus::gcSmartAlloc(sizeof(_Ptr_type) * count, "null", -1, false));
 #endif
 	if (_ptr != nullptr)
 		for (_Elem_count i = 0; i < count; ++i)
@@ -572,20 +582,20 @@ _NODISCARD _Ptr_type* gcNewArray(_Elem_count count) {
 
 // Scalar delete
 template<typename _Ptr_type>
-void gcDelete(_Ptr_type* ptr) {
+void smartDelete(_Ptr_type* ptr) {
 	if (ptr) {
 		ptr->~_Ptr_type();
-		SmartGarbageCollector::gcSmartFree(ptr, false);
+		MemTrackifyPlus::smartDealloc(ptr, false);
 	}
 };
 
 // Array delete
 template<typename _Ptr_type, typename _Elem_count = std::size_t>
-void gcDeleteArray(_Ptr_type* ptr, _Elem_count count) {
+void smartDeleteArray(_Ptr_type* ptr, _Elem_count count) {
 	if (ptr) {
 		for (_Elem_count i = 0; i < count; ++i)
 			ptr[i].~_Ptr_type();
-		SmartGarbageCollector::gcSmartFree(ptr, true);
+		MemTrackifyPlus::smartDealloc(ptr, true);
 	}
 };
 
@@ -596,25 +606,14 @@ void gcDeleteArray(_Ptr_type* ptr, _Elem_count count) {
 
 // Mask default 'new/delete' operators with debug tracking info
 // This will ensure the allocation is logged with file/line info
-#ifndef SMART_GC_NOTOVERRIDE_GLOBAL_NEW
-	#define smart_new					new
-	#define smart_new_array				new[]
-	#define smart_delete				delete
-	#define smart_delete_array			delete[]
-	#ifdef SMART_GC_DEBUG
-		#undef smart_new
-		#undef smart_new_array
-		#define smart_new				new(__FILE__, __LINE__)
-		#define smart_new_array			new[](__FILE__, __LINE__)
+#ifndef _MTP_NO_OVERRIDE_GLOBAL_OPERATORS
+	#define track_new					new
+	#define track_delete				delete
+	#ifdef _MTP_DEBUG
+		#undef track_new
+		#define track_new				new(__FILE__, __LINE__)
 		#define debug_new				new(__FILE__, __LINE__)
-		#define debug_new_array			new[](__FILE__, __LINE__)
 		#define debug_delete			delete
-		#define debug_delete_array		delete[]
-	#endif // SMART_GC_DEBUG
-#else
-	#define smart_new					gcNew
-	#define smart_new_array				gcNewArray
-	#define smart_delete				gcDelete
-	#define smart_delete_array			gcDeleteArray
-#endif	// !SMART_GC_NOTOVERRIDE_GLOBAL_NEW
-#endif	// if !defined _SMART_GARBAGE_COLLECTION_CPP_INCLUDED_
+	#endif // _MTP_DEBUG
+#endif	// !_MTP_NO_OVERRIDE_GLOBAL_OPERATORS
+#endif	// if !defined _MEM_TRACKIFY_PLUS_INCLUDED_
