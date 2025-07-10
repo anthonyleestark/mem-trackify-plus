@@ -19,5 +19,5 @@
 
 #if !_HAS_CXX17
 	// Global tracker to handle memory allocations
-	MemTrackifyPlus __mem_trackify_global::__g_mtpGlobalTracker;
+	MemTrackifyPlus GlobalMemTracker::globalTracker_;
 #endif

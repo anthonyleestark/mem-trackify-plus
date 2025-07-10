@@ -39,10 +39,10 @@ Include it wherever you want (preferably in your top-most or precompiled header 
 
 > ⚠️ **Note:** 
 >   If you're using a version of C++ **before C++17** _(C++ 98/03/11/14)_, you must also add the `"mem_trackify.cpp"` file to your project.  
->   Alternatively, add this definition in at least one of your translation units/source file (`.cpp`):
+>   Alternatively, you can add this definition in **one** of your translation units/source files (`.cpp`):
 
 ```cpp
-MemTrackifyPlus __mem_trackify_global::__g_mtpGlobalTracker;
+MemTrackifyPlus GlobalMemTracker::globalTracker_;
 ```
 
 
