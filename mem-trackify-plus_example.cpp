@@ -1,10 +1,11 @@
-﻿/**
- * @file		mem-trackify-plus_example.cpp
- * @brief 		Example usage of MemTrackify++ Library
- * @copyright	Copyright (c) 2025 Anthony Lee Stark. All rights reserved.
- * @details		Released under MIT License
- *
- */
+﻿// MemTrackify++
+// Copyright (c) 2025 Anthony Lee Stark
+// SPDX-License-Identifier: MIT
+
+
+// ================================================================================
+// Example usage of MemTrackify++ Library (not a part of the library)
+// ================================================================================
 
 #include <iostream>
 #include <vector>

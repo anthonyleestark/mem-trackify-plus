@@ -1,16 +1,11 @@
-﻿/**
- * @file		mem_trackify.h 
- * @brief 		A very simple, lightweight, header-only C++ library designed to
- *				track memory allocations and deallocations throughout the lifetime of a program.
- * @copyright	Copyright (c) 2025 Anthony Lee Stark. All rights reserved.
- * @details		Released under MIT License
- * 
- */
+﻿// MemTrackify++
+// Copyright (c) 2025 Anthony Lee Stark
+// SPDX-License-Identifier: MIT
 
 
- // ================================================================================
- // Macros definition for usage
- // ================================================================================
+// ================================================================================
+// Macros definition for usage
+// ================================================================================
 
 /**
  * NOTE: In order to use this MemTrack++ library or to enable/disable
