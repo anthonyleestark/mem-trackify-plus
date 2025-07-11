@@ -9,7 +9,7 @@
 #include <iostream>
 #include <vector>
 
-#define _MTP_CONSOLE_REPORT_ON_TERMINATION			// uncomment this to view console report result
+// #define _MTP_CONSOLE_REPORT_ON_TERMINATION			// uncomment this to view console report result
 #include "mem_trackify.h"
 
 //// default testing

@@ -186,16 +186,13 @@
 class MemTrackifyPlus 
 {
 public:
-	struct MTPDebugInfo {
-		const char* file;
-		int			line;
-	};
-	struct AllocInfo {			// Struct to hold allocation information
+	struct AllocInfo {					// Struct to hold allocation information
 		size_t		size;
 		bool		isArray;
-#ifdef _MTP_DEBUG
-		MTPDebugInfo debugInfo;
-#endif // _MTP_DEBUG
+	};
+	struct DebugInfo {					// Struct to hold debugging information
+		const char* file = nullptr;
+		int32_t		line = -1;
 	};
 
 private:
@@ -205,7 +202,9 @@ private:
 	using AtomicFlag		= typename std::atomic<bool>;
 	using AllocTrackObj		= typename std::pair<Address, AllocInfo>;
 	using AllocTrackData	= typename std::unordered_map<Address, AllocInfo>;
-	using LeakReport		= typename std::vector<StringData>;
+	using DebugTrackObj		= typename std::pair<Address, DebugInfo>;
+	using DebugTrackData	= typename std::unordered_map<Address, DebugInfo>;
+	using TrackingReport	= typename std::vector<StringData>;
 
 #ifdef _MTP_THREADSAFETY
 	using MutexObj			= typename std::recursive_mutex;
@@ -222,7 +221,7 @@ public:
 	// Destructor
 	~MemTrackifyPlus() {
 #ifdef _MTP_CONSOLE_REPORT_ON_TERMINATION
-		this->printLeakInfo(std::cout);
+		this->printTrackingReport(std::cout);
 #endif // _MTP_CONSOLE_REPORT_ON_TERMINATION
 
 		// Automatically execute garbage collection at termination
@@ -265,7 +264,7 @@ private:
 		if (isInReqTrackAlloc) return std::malloc(size);
 
 		// Ensure the flag is automatically reset
-		MTPAllocGuard guard(isInReqTrackAlloc);
+		AllocGuard allocGuard(isInReqTrackAlloc);
 
 		// Allocate memory block
 		void* ptr = std::malloc(size);
@@ -279,12 +278,8 @@ private:
 		if (ptr && (reinterpret_cast<uintptr_t>(ptr) > 0x10000)
 			/* only track when the track map is initialized */
 			&& isTrackerInitialized_.load(std::memory_order_acquire)) {
-
-#ifndef _MTP_DEBUG
 			allocTrackData_.insert(AllocTrackObj(ptr, { size, isArray }));
-#else
-			allocTrackData_.insert(AllocTrackObj(ptr, { size, isArray, { file, line } }));
-#endif // !_MTP_DEBUG
+			debugTrackData_.insert(DebugTrackObj(ptr, { file, line }));
 		}
 		return ptr;
 	};
@@ -306,6 +301,23 @@ private:
 				allocTrackData_.erase(it);		// Remove the entry
 				std::free(ptr);					// Default: Free memory
 			}
+	};
+
+	// Print memory tracking info
+	void printTrackingInfo(const AllocTrackObj& allocTrackObj, std::ostream& os, bool newLine) const noexcept {
+		os << "Leaked: " << allocTrackObj.second.size << " bytes "
+			<< (allocTrackObj.second.isArray ? "of an array " : "") << "at " << allocTrackObj.first;
+#ifdef _MTP_DEBUG
+		auto debugInfo = debugTrackData_.get(allocTrackObj.first);
+		if (debugInfo != nullptr) {
+			os << " in " << ((debugInfo->file != nullptr) ? debugInfo->file : "unknown file");
+			if (debugInfo->line != -1)
+				os << " (line:" << debugInfo->line << ")";
+			else
+				os << " (line: unknown)";
+		}
+#endif // _MTP_DEBUG
+		os << (newLine ? ".\n" : ".");
 	};
 
 public:
@@ -347,37 +359,28 @@ public:
 		return (!allocTrackData_.empty());
 	};
 
-	// Get list of tracking data (as an array of string)
-	_NODISCARD LeakReport getLeakReport(void) const noexcept {
-		LeakReport report;
+	// Get memory tracking report data (as an array of string)
+	_NODISCARD TrackingReport getTrackingReport(void) const noexcept {
+		if (isInReporting_.exchange(true)) { return {}; }
+		TrackingReport report;
 		if (isMemoryLeak()) {
+			report.reserve(getPtrCount());
 			for (const auto& info : allocTrackData_) {
 				StringStreamData oss;
-				oss << "Memory leaked: " << info.second.size << " bytes "
-					<< (info.second.isArray ? "of an array " : "")
-					<< "at " << info.first
-#ifdef _MTP_DEBUG
-					<< " in " << info.second.debugInfo.file << " (line:" << info.second.debugInfo.line << ")"
-#endif // _MTP_DEBUG
-					<< ".";
+				printTrackingInfo(info, oss, false);
 				report.push_back(oss.str());
 			}
 		}
+		isInReporting_ = false;
 		return report;
 	};
 
-	// Print tracking data (to file/console, ...)
-	void printLeakInfo(std::ostream& os) const noexcept {
+	// Print memory tracking report data (to file/console, ...)
+	void printTrackingReport(std::ostream& os) const noexcept {
 		if (isMemoryLeak()) {
 			os << "\n--- Memory Leaks Detected ---\n";
 			for (const auto& info : allocTrackData_) {
-				os << "Memory leaked: " << info.second.size << " bytes "
-					<< (info.second.isArray ? "of an array " : "")
-					<< "at " << info.first
-#ifdef _MTP_DEBUG
-					<< " in " << info.second.debugInfo.file << " (line:" << info.second.debugInfo.line << ")"
-#endif // _MTP_DEBUG
-					<< ".\n";
+				printTrackingInfo(info, os, true);
 			}
 		}
 		else {
@@ -395,24 +398,52 @@ private:
 	MemTrackifyPlus& operator=(const MemTrackifyPlus&&) = delete;
 
 private:
-	// Attributes
-	AllocTrackData		allocTrackData_;				// Stores all allocation info
-	AtomicFlag			isTrackerInitialized_ = false;	// Check if the tracker finished initializing
-#ifdef _MTP_THREADSAFETY
-	mutable MutexObj	myMutex_;						// Ensures thread-safety
-#endif // _MTP_THREADSAFETY
-
-private:
 	// Ensure trackAlloc() function run correctly
-	class MTPAllocGuard {
+	class AllocGuard {
 	public:
 		// Construction
-		MTPAllocGuard(bool& flag) : myFlag_(flag) { myFlag_ = true; };
-		~MTPAllocGuard() { myFlag_ = false; };
+		AllocGuard(bool& flag) : myFlag_(flag) { myFlag_ = true; };
+		~AllocGuard() { myFlag_ = false; };
 
 	private:
 		bool& myFlag_;
 	};
+
+	// Debug track data wrapper (maybe dummy)
+	class DebugTracker {
+	public:
+#ifdef  _MTP_DEBUG
+		// Operations
+		void insert(const DebugTrackObj& obj) {	data_.insert(obj); };
+		void insert(Address addr, const char* file, int line) {
+			data_[addr] = { file, line };
+		};
+		_NODISCARD const DebugInfo* get(Address addr) const {
+			auto it = data_.find(addr);
+			if (it != data_.end()) return &it->second;
+			return nullptr;
+		};
+#else
+		// Dummy operations
+		void insert(const DebugTrackObj&) {};
+		void insert(Address, const char*, int) {};
+		_NODISCARD const DebugInfo* get(Address) const { return nullptr; };
+#endif // !_MTP_DEBUG
+
+	private:
+		// Debug data map
+		DebugTrackData data_;
+	};
+
+private:
+	// Attributes
+	AllocTrackData		allocTrackData_;				// Stores all allocation info
+	DebugTracker		debugTrackData_;				// Stores all debug tracking info
+	AtomicFlag			isTrackerInitialized_ = false;	// Check if the tracker finished initializing
+	mutable AtomicFlag	isInReporting_ = false;			// Check if the tracking report process is running
+#ifdef _MTP_THREADSAFETY
+	mutable MutexObj	myMutex_;						// Ensures thread-safety
+#endif // _MTP_THREADSAFETY
 };
 
 
@@ -448,7 +479,7 @@ _NODISCARD inline MemTrackifyPlus* getGlobalMemTracker(void) {
 #ifndef _MTP_DEBUG
 inline void* MemTrackifyPlus::smartAlloc(size_t size, bool isArray) {
 	MemTrackifyPlus* allocTracker = getGlobalMemTracker();
-	if (allocTracker) return allocTracker->reqTrackAlloc(size, "null", -1, isArray);
+	if (allocTracker) return allocTracker->reqTrackAlloc(size, "unknown", -1, isArray);
 	return std::malloc(size);
 };
 #else
@@ -611,8 +642,9 @@ void smartDeleteArray(_Ptr_type* ptr, _Elem_count count) {
 	#define track_delete				delete
 	#ifdef _MTP_DEBUG
 		#undef track_new
-		#define track_new				new(__FILE__, __LINE__)
-		#define debug_new				new(__FILE__, __LINE__)
+		#define new						new(__FILE__, __LINE__)
+		#define track_new				new		// ^^^
+		#define debug_new				new		// ^^^
 		#define debug_delete			delete
 	#endif // _MTP_DEBUG
 #endif	// !_MTP_NO_OVERRIDE_GLOBAL_OPERATORS

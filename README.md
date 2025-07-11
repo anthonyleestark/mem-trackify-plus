@@ -57,7 +57,7 @@ Before including the header file, define any desired macros:
 ```
 
 > ⚠️ **Note:** 
->   Or you can define these macros in the **Preprocessor Definitions** section of your project settings.
+>   It's best to define these macros in the **Preprocessor Definitions** section of your project settings.
 
 
 ## 🛠 Macros & Modes
