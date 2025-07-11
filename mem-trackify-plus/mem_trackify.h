@@ -177,6 +177,18 @@
 	#endif // _HAS_NODISCARD
 #endif _NODISCARD
 
+// _MTP_CONSOLE_REPORT_ON_TERMINATION only works on console
+#if defined(_MTP_CONSOLE_REPORT_ON_TERMINATION) && !defined(_CONSOLE)
+	#error _MTP_CONSOLE_REPORT_ON_TERMINATION only works on console (with _CONSOLE)
+	#undef _MTP_CONSOLE_REPORT_ON_TERMINATION
+#endif
+
+// _MTP_THREADSAFETY only works on C++ 17 or later
+#if !defined(_MTP_THREADSAFETY) && !_HAS_CXX17
+	#error _MTP_THREADSAFETY only works on C++ 17 or later
+	#undef _MTP_THREADSAFETY
+#endif
+
 
 // ================================================================================
 // Class/struct declaration

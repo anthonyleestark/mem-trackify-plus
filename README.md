@@ -62,12 +62,12 @@ Before including the header file, define any desired macros:
 
 ## 🛠 Macros & Modes
 
-| Macro                                 | Description                                                       |
-|---------------------------------------|-------------------------------------------------------------------|
-| `_MTP_DEBUG`                          | Enable debug mode (tracking filename and line number).            |
-| `_MTP_THREADSAFETY`                   | Ensure thread-safety during memory allocations and deallocations. |
-| `_MTP_CONSOLE_REPORT_ON_TERMINATION`  | Show leak report at program exit (for console application only).  |
-| `_MTP_NO_OVERRIDE_GLOBAL_OPERATORS`   | Do **not** override global `new`/`delete` operators.              |
+| Macro                                 | Description                                                                                 |
+|---------------------------------------|---------------------------------------------------------------------------------------------|
+| `_MTP_DEBUG`                          | Enable debug mode (tracking filename and line number).                                      |
+| `_MTP_THREADSAFETY`                   | Ensure thread-safety during memory allocations and deallocations **(for C++ 17 or later)**. |
+| `_MTP_CONSOLE_REPORT_ON_TERMINATION`  | Show leak report at program exit **(for console application only)**.                        |
+| `_MTP_NO_OVERRIDE_GLOBAL_OPERATORS`   | Do **not** override global `new`/`delete` operators.                                        |
 
 
 ## 🔧 Usage Examples
@@ -153,7 +153,7 @@ if (tracker->isMemoryLeak()) {
     std::cout << "Number of allocated pointers: " << ptrCount << ".\n";
     size_t allocMemSize = tracker->getMemorySize();
     std::cout << "Memory allocated size: " << allocMemSize << " bytes.\n";
-    tracker->printLeakInfo(std::cout);
+    tracker->printTrackingReport(std::cout);
 }
 ```
 
